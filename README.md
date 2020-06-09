@@ -5,6 +5,8 @@ This repository includes the code necessary for reproducing ...
 TODO: list requirements, including CARLA and ORB-SLAM python installs.
 
 ```
+mkdir data/
+cd python
 python initialize_system_collect_data.py carla-uav
 python initialize_system_collect_data.py carla-car
 python evaluate_predictors.py carla-uav
