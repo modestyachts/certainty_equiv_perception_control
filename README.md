@@ -1,8 +1,8 @@
 # Certainty Equivalent Perception-based Control
 
-This repository includes the code necessary for reproducing ...
+This repository includes the code necessary for reproducing experiments presented in *Certainty Equivalent Perception-based Control*.
 
-TODO: list requirements, including CARLA and ORB-SLAM python installs.
+To run, the code requires the CARLA simulator (https://carla.readthedocs.io/en/latest/start_quickstart/), ORB-SLAM (https://github.com/raulmur/ORB_SLAM2), and python bindings (https://github.com/jskinn/ORB_SLAM2-PythonBindings).
 
 ```
 mkdir data/
