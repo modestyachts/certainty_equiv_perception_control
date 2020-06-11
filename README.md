@@ -2,7 +2,11 @@
 
 This repository includes the code necessary for reproducing experiments presented in *Certainty Equivalent Perception-based Control*.
 
-To run, the code requires the CARLA simulator (https://carla.readthedocs.io/en/latest/start_quickstart/), ORB-SLAM (https://github.com/raulmur/ORB_SLAM2), and python bindings (https://github.com/jskinn/ORB_SLAM2-PythonBindings).
+To run, the code requires the CARLA simulator (https://carla.readthedocs.io/en/latest/start_quickstart/), with python bindings (https://carla.readthedocs.io/en/stable/connecting_the_client/), ORB-SLAM (https://github.com/raulmur/ORB_SLAM2), and ORB-SLAM python bindings (https://github.com/jskinn/ORB_SLAM2-PythonBindings).
+
+## Reproducing experiments
+
+The following set of commands are sufficient for reproducing experiments.
 
 ```
 mkdir data/
@@ -18,3 +22,5 @@ python closedloop_predictors.py carla-uav small
 python closedloop_predictors.py carla-car
 python closedloop_orb.py carla-car
 ```
+
+Then the notebook Plot Results.ipynb parses the saved data and generates plots.
