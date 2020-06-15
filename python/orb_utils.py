@@ -30,11 +30,13 @@ def get_transform(true_data, slam_data):
     for i in range(pos_true.shape[1]):
         X = np.vstack([pos_slam_sim[:, i],
                        np.ones_like(pos_slam_sim[:, i])]).T
-        sc, off = np.linalg.pinv(X) @ pos_true[:, i]
+        sc, off = np.linalg.inv(X.T @ X) @ X.T @ pos_true[:, i]
         scale.append(sc)
         offset.append(off)
     scale = np.array(scale).reshape(3, 1)
     offset = np.array(offset).reshape(3, 1)
+
+    print(R, t, scale, offset)
 
     def transform(positions):
         """takes nx3 set of positions and returns nx3 transformed points"""
@@ -131,11 +133,9 @@ class OrbPredictor():
             slam_times.append(time)
             slam_positions.append(t)
 
-        np.savez("test.npz", xyz_true=xyz_true, true_times=true_times,
-                 slam_positions=slam_positions, slam_times=slam_times)
-
         self.coord_transform = get_transform((xyz_true, true_times),
                                              (slam_positions, slam_times))
+        self.slam.process_image_mono(self.blank_image, self.tframe + 1. / self.fps)
 
     def process_grid(self, zs_grid, speed=False, no_mapping=True):
         """Prediction function.
