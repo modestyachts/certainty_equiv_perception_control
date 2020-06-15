@@ -8,71 +8,58 @@ import os
 
 
 def get_transform(true_data, slam_data):
+    """Fit transformation between slam frame and world frame."""
     true_position, true_times = true_data
     slam_position, slam_times = slam_data
-
     true_position = np.array(true_position)
     slam_position = np.array(slam_position)
     true_times = np.array(true_times)
-    slam_data = np.array(slam_data)
+    slam_times = np.array(slam_times)
 
-    ## temporal alignment
+    # aligning in time
     time_indices = [np.argmin(np.abs(true_times - t)) for t in slam_times]
-    v = true_position[time_indices].T
-    u = slam_position.T
+    pos_true = true_position[time_indices]
+    pos_slam = slam_position
 
-    u_sim, rot, trans = sim_transform(u, v)
-    u_align, w = affine_regress(u_sim, v)
+    # rigid body alignment
+    R, t = horn(pos_slam.T, pos_true.T)
+    pos_slam_sim = (R @ pos_slam.T + t).T
 
-    a = w[:,0][:,None]
-    b = w[:,1][:,None]
+    # 1d affine correction
+    scale = []; offset = []
+    for i in range(pos_true.shape[1]):
+        X = np.vstack([pos_slam_sim[:,i], 
+                       np.ones_like(pos_slam_sim[:,i])]).T
+        sc, off = np.linalg.pinv(X) @ pos_true[:,i]
+        scale.append(sc)
+        offset.append(off)
+    scale = np.array(scale).reshape(3,1)
+    offset = np.array(offset).reshape(3,1)
 
-    def transform(pts):
-        # argument is n by 3
-        # return is n by 3
-        pts = np.asarray(pts).reshape((-1, 3)).T
-        return ((rot.dot(pts) + trans) * a + b).T
+    def transform(positions):
+        """takes nx3 set of positions and returns nx3 transformed points"""
+        positions = np.asarray(positions).reshape((-1, 3)).T
+        return ((R.dot(positions) + t) * scale + offset).T
 
-    # todo: use transform to compute u_align
-
-    max_err = np.max(np.abs(v[:2] - u_align[:2]))
-    print("transform computed, max error %.3f" % max_err)
-
+    max_err = np.max(np.abs(pos_true[:,:2] - transform(pos_slam)[:,:2]))
+    print("Computed transform with max error {}".format(max_err))
     return transform
 
-def sim_transform(u, v):
-    # Horn's method
-    # make sure u and v are 3xn arrays
-    u = u.reshape((3, -1))
-    v = v.reshape((3, -1))
-    u_mean = u.mean(axis=1, keepdims=True)
-    v_mean = v.mean(axis=1, keepdims=True)
-    u_centered = u - u_mean
-    v_centered = v - v_mean
-
-    W = np.zeros((3, 3))
-    for j in range(u.shape[1]):
-        W += np.outer(u_centered[:,j], v_centered[:,j])
-    U, d, Vh = np.linalg.svd(W.T)
-    S = np.eye(3)
-    if np.linalg.det(U) * np.linalg.det(Vh) < 0:
-        S[2,2] = -1
-    rot = U.dot(S).dot(Vh)
-    trans = v_mean - rot.dot(u_mean)
-    u_align = rot.dot(u) + trans
-    return u_align, rot, trans
-
-def affine_regress(u, v):
-    # transform u to v by a 1d affine transform
-    assert u.shape[0] == v.shape[0]
-    ws = []; aligned_us = []
-    for i in range(u.shape[0]):
-        X = np.array([u[i], np.ones_like(u[i])]).T
-        w = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(v[i])
-        ws.append(w)
-        u_align = X.dot(w)
-        aligned_us.append(u_align)
-    return np.array(aligned_us), np.array(ws)
+def horn(P, Q):
+    """Horn's method for rigid point cloud alignment."""
+    P = P.reshape(3, -1)
+    Q = Q.reshape(3, -1)
+    P_mean = np.mean(P, axis=1, keepdims=True)
+    Q_mean = np.mean(Q, axis=1, keepdims=True)
+    P_centered = P - P_mean
+    Q_centered = Q - Q_mean
+    U, _, Vt = np.linalg.svd(Q_centered @ P_centered.T)
+    L = np.eye(3)
+    if np.linalg.det(U) * np.linalg.det(Vt) < 0:
+        L[2,2] *= -1
+    R = U.dot(L).dot(Vt)
+    t = Q_mean - R @ P_mean
+    return R, t
 
 class OrbPredictor():
     """ORB-SLAM based predictor.
@@ -138,6 +125,9 @@ class OrbPredictor():
                 t = slam_positions[-1]
             slam_times.append(time)
             slam_positions.append(t)
+
+        np.savez("test.npz", xyz_true=xyz_true, true_times=true_times,
+                 slam_positions=slam_positions, slam_times=slam_times)
 
         self.coord_transform = get_transform((xyz_true, true_times),
                                         (slam_positions, slam_times))
