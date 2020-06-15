@@ -24,13 +24,13 @@ x0[3] = -0.1
 plant = ex.DoubleIntegratorPlant(ndims=n_dims, x0=x0, sw=0., decay=(1, 1))
 
 if observer_name == 'carla-uav':
-    observer = ex.carla_observations(setting='uav')
+    observer = ex.CarlaObservations(setting='uav')
     su = 0.01
 elif observer_name == 'carla-car':
-    observer = ex.carla_observations(setting='car')
+    observer = ex.CarlaObservations(setting='car')
     su = 0.01
 elif observer_name == 'dot':
-    observer = ex.dot_observations(ndims=n_dims, dot_width=0.05, im_size=50)
+    observer = ex.DotObservations(ndims=n_dims, dot_width=0.05, im_size=50)
     su = 0.01
 
 ## Defining reference trajectory for training data
@@ -68,7 +68,7 @@ controller = ex.PeriodicTrackingController(xref, plant.A, plant.B,
 
 # this parameter determines the label noise
 sv = 0.01
-measurement = ex.linear_observations(controller_C, sv)
+measurement = ex.LinearObservations(controller_C, sv)
 
 interconnection = ex.Interconnection(plant, observer.observe, controller,
                                      get_observation_for_controller=measurement.observe)

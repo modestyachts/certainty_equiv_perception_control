@@ -45,9 +45,9 @@ slam_predictor.online = True
 
 # re-initialize observer
 if observer_name == 'carla-uav':
-    observer = ex.carla_observations(setting='uav')
+    observer = ex.CarlaObservations(setting='uav')
 elif observer_name == 'carla-car':
-    observer = ex.carla_observations(setting='car')
+    observer = ex.CarlaObservations(setting='car')
 
 interconnection.get_observation = observer.observe
 yref = []
