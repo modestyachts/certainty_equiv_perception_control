@@ -1,44 +1,44 @@
-import orbslam2
-import numpy as np
-import pickle
+"""Script for training then running ORB-SLAM in closedloop."""
 import sys
-import time as datetime
+import time
+import pickle
+import numpy as np
 
+# need to import ORBSLAM before CARLA
+from orb_utils import OrbPredictor
 import experiments as ex
 
-from orb_utils import *
-
-observer_name = sys.argv[1] 
+observer_name = sys.argv[1]
 filetag = observer_name
 directory = '../data/'
 
 if observer_name == 'carla-uav':
-    scale = ex.CARLA_UAV_SCALE # multiplier to convert into meters
-    height = ex.CARLA_UAV_HEIGHT # fixed height parameter
+    scale = ex.CARLA_UAV_SCALE
+    height = ex.CARLA_UAV_HEIGHT
 else:
-    scale = ex.CARLA_CAR_SCALE # multiplier to convert into meters
-    height = ex.CARLA_CAR_HEIGHT # fixed height parameter
+    scale = ex.CARLA_CAR_SCALE
+    height = ex.CARLA_CAR_HEIGHT
 
-## Loading train data
+# Loading train data
 
-with open('{}training_interconnection_{}.pkl'.format(directory,filetag), 'rb') as input:
-    interconnection = pickle.load(input)
-params = np.load('{}training_{}.npz'.format(directory,filetag))
+with open('{}training_interconnection_{}.pkl'.format(directory, filetag), 'rb') as fileinput:
+    interconnection = pickle.load(fileinput)
+params = np.load('{}training_{}.npz'.format(directory, filetag))
 C = params['C']
 controller_C = interconnection.controller.C
 
 ys = (interconnection.xs @ C.T)
 ys_label = interconnection.zs_c
 
-## Initializing predictor
+# Initializing predictor
 
 slam_predictor = OrbPredictor(fps=10., scale=scale, height=height)
 
-num_train_images = 200 
+num_train_images = 200
 slam_predictor.process_train(interconnection.zs, ys_label,
                              cutoff=num_train_images)
 
-### VO CLOSED LOOP
+# VO CLOSED LOOP
 
 slam_predictor.reset_between = True
 slam_predictor.online = True
@@ -51,50 +51,22 @@ elif observer_name == 'carla-car':
 
 interconnection.get_observation = observer.observe
 yref = []
-f = 0.01; a=2
+f = 0.01
+a = 2
 for t in range(int(1./f)):
     yref.append(np.array([(0.95*a)*np.sin(f*2*np.pi*t), a*np.cos(f*2*np.pi*t)]))
 yref = np.array(yref)
 xref = yref @ C
 
 # small initial speed for correct angle
-xref[0,1] = xref[0,2]/100
-xref[0,3] = -xref[0,0]/100
+xref[0, 1] = xref[0, 2]/100
+xref[0, 3] = -xref[0, 0]/100
 
 interconnection.plant.reset(x0=xref[0])
-controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A, interconnection.plant.B, 
-                                               controller_C, interconnection.controller.K, interconnection.controller.L,
-                                             perception=slam_predictor.pred, x0=xref[0])
-
-
-# running interconnection forward
-interconnection_v = ex.interconnection(interconnection.plant, observer.observe, controller_p)
-T = 100
-for i in range(T):
-    interconnection_v.step()
-    curr_x = interconnection_v.xs[-1]
-    print(i, curr_x)
-    datetime.sleep(1./10.)
-    if curr_x[0]**2 + curr_x[2]**2 > 4**2:
-        break
-
-## saving
-interconnection_v.get_observation = None
-interconnection_v.controller.perception = None
-with open('{}CL_vo_interconnection_{}.pkl'.format(directory,filetag),
-          'wb') as output:
-    pickle.dump(interconnection_v, output, pickle.HIGHEST_PROTOCOL)
-np.savez('{}CL_vo_{}.npz'.format(directory,filetag), yref=yref)
-
-
-### SLAM CLOSED LOOP
-
-slam_predictor.reset_between = False
-
-
-interconnection.plant.reset(x0=xref[0])
-controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A, interconnection.plant.B, 
-                                               controller_C, interconnection.controller.K, interconnection.controller.L,
+controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
+                                               interconnection.plant.B, controller_C,
+                                               interconnection.controller.K,
+                                               interconnection.controller.L,
                                                perception=slam_predictor.pred, x0=xref[0])
 
 
@@ -105,19 +77,47 @@ for i in range(T):
     interconnection_v.step()
     curr_x = interconnection_v.xs[-1]
     print(i, curr_x)
-    datetime.sleep(1./10.)
+    time.sleep(1./10.)
     if curr_x[0]**2 + curr_x[2]**2 > 4**2:
         break
 
-## saving
 interconnection_v.get_observation = None
 interconnection_v.controller.perception = None
-with open('{}CL_slam_interconnection_{}.pkl'.format(directory,filetag),
+with open('{}CL_vo_interconnection_{}.pkl'.format(directory, filetag),
           'wb') as output:
     pickle.dump(interconnection_v, output, pickle.HIGHEST_PROTOCOL)
-np.savez('{}CL_slam_{}.npz'.format(directory,filetag), yref=yref)
+np.savez('{}CL_vo_{}.npz'.format(directory, filetag), yref=yref)
 
 
+# SLAM CLOSED LOOP
+
+slam_predictor.reset_between = False
+
+interconnection.plant.reset(x0=xref[0])
+controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
+                                               interconnection.plant.B, controller_C,
+                                               interconnection.controller.K,
+                                               interconnection.controller.L,
+                                               perception=slam_predictor.pred, x0=xref[0])
+
+
+# running interconnection forward
+interconnection_v = ex.interconnection(interconnection.plant, observer.observe, controller_p)
+T = 100
+for i in range(T):
+    interconnection_v.step()
+    curr_x = interconnection_v.xs[-1]
+    print(i, curr_x)
+    time.sleep(1./10.)
+    if curr_x[0]**2 + curr_x[2]**2 > 4**2:
+        break
+
+interconnection_v.get_observation = None
+interconnection_v.controller.perception = None
+with open('{}CL_slam_interconnection_{}.pkl'.format(directory, filetag),
+          'wb') as output:
+    pickle.dump(interconnection_v, output, pickle.HIGHEST_PROTOCOL)
+np.savez('{}CL_slam_{}.npz'.format(directory, filetag), yref=yref)
 
 observer.kill()
 slam_predictor.shutdown()
