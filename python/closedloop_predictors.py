@@ -55,12 +55,12 @@ xref[0, 3] = -xref[0, 0]/100
 interconnection.plant.reset(x0=xref[0])
 
 
-controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
+controller_p = ex.PeriodicTrackingController(xref, interconnection.plant.A,
                                                interconnection.plant.B, controller_C,
                                                interconnection.controller.K,
                                                interconnection.controller.L,
                                                perception=pred.pred, x0=xref[0])
-interconnection_v = ex.interconnection(interconnection.plant, observer.observe, controller_p)
+interconnection_v = ex.Interconnection(interconnection.plant, observer.observe, controller_p)
 T = 110
 for i in range(T):
     interconnection_v.step()

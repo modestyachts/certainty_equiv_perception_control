@@ -63,7 +63,7 @@ xref[0, 1] = xref[0, 2]/100
 xref[0, 3] = -xref[0, 0]/100
 
 interconnection.plant.reset(x0=xref[0])
-controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
+controller_p = ex.PeriodicTrackingController(xref, interconnection.plant.A,
                                                interconnection.plant.B, controller_C,
                                                interconnection.controller.K,
                                                interconnection.controller.L,
@@ -71,7 +71,7 @@ controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
 
 
 # running interconnection forward
-interconnection_v = ex.interconnection(interconnection.plant, observer.observe, controller_p)
+interconnection_v = ex.Interconnection(interconnection.plant, observer.observe, controller_p)
 T = 100
 for i in range(T):
     interconnection_v.step()
@@ -94,7 +94,7 @@ np.savez('{}CL_vo_{}.npz'.format(directory, filetag), yref=yref)
 slam_predictor.reset_between = False
 
 interconnection.plant.reset(x0=xref[0])
-controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
+controller_p = ex.PeriodicTrackingController(xref, interconnection.plant.A,
                                                interconnection.plant.B, controller_C,
                                                interconnection.controller.K,
                                                interconnection.controller.L,
@@ -102,7 +102,7 @@ controller_p = ex.periodic_tracking_controller(xref, interconnection.plant.A,
 
 
 # running interconnection forward
-interconnection_v = ex.interconnection(interconnection.plant, observer.observe, controller_p)
+interconnection_v = ex.Interconnection(interconnection.plant, observer.observe, controller_p)
 T = 100
 for i in range(T):
     interconnection_v.step()

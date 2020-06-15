@@ -21,7 +21,7 @@ n_dims = 2
 x0 = np.array([0, 0] * (n_dims))
 x0[2] = 2.
 x0[3] = -0.1
-plant = ex.double_integrator_plant(ndims=n_dims, x0=x0, sw=0., decay=(1, 1))
+plant = ex.DoubleIntegratorPlant(ndims=n_dims, x0=x0, sw=0., decay=(1, 1))
 
 if observer_name == 'carla-uav':
     observer = ex.carla_observations(setting='uav')
@@ -60,7 +60,7 @@ W = np.eye(controller_C.shape[1])
 V = 0.1*np.eye(controller_C.shape[0])
 L = ex.lqg_inf_horizon(plant.A, observer.C, W, V)[0]
 
-controller = ex.periodic_tracking_controller(xref, plant.A, plant.B,
+controller = ex.PeriodicTrackingController(xref, plant.A, plant.B,
                                              controller_C, -K, L, su=su,
                                              x0=xref[0])
 
@@ -70,7 +70,7 @@ controller = ex.periodic_tracking_controller(xref, plant.A, plant.B,
 sv = 0.01
 measurement = ex.linear_observations(controller_C, sv)
 
-interconnection = ex.interconnection(plant, observer.observe, controller,
+interconnection = ex.Interconnection(plant, observer.observe, controller,
                                      get_observation_for_controller=measurement.observe)
 T = 2000
 for _ in tqdm.autonotebook.tqdm(range(T)):

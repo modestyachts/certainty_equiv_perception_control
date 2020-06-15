@@ -6,7 +6,6 @@ import experiments
 import tqdm.autonotebook
 import os
 
-
 def get_transform(true_data, slam_data):
     """Fit transformation between slam frame and world frame."""
     true_position, true_times = true_data
@@ -187,7 +186,6 @@ class OrbPredictor():
         R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]])
         t = np.array([t1, t2, t3])
         return time, R, t
-
 
     def pred(self, z, tframe=None, reset_between=False):
         """Predict from single image [z].""" 

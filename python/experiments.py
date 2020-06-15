@@ -1,40 +1,41 @@
+"""Classes for defining and running system interconnections."""
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.linalg
 
-import glob, os
-import sys
-
 from observers import *
 
-class double_integrator_plant():
+class DoubleIntegratorPlant():
     """Implementation of double integrator dynamics."""
 
-    def __init__(self, ndims=1, dt=0.1, decay=(1, 1), sw=0.1, sv=0., x0=None):
+    def __init__(self, ndims=1, dt=0.1, decay=(1, 1), sw=0.1, x0=None):
         # constructing dynamics
-        A1 = np.array([[decay[0],dt],[0,decay[1]]])
-        B1 = np.array([[0],[1]])
+        A1 = np.array([[decay[0], dt], [0, decay[1]]])
+        B1 = np.array([[0], [1]])
         self.A = scipy.linalg.block_diag(*[A1]*ndims)
         self.B = scipy.linalg.block_diag(*[B1]*ndims)
 
         # process noise
-        self.Bw = sw * np.eye(self.A.shape[0]) 
+        self.Bw = sw * np.eye(self.A.shape[0])
 
         # initializing state
         self.x = np.zeros(self.A.shape[0]) if x0 is None else x0
         self.t = 0
-        self._w = None; self._v = None;
+        self._w = None
+        self._v = None
 
     def reset(self, x0=None):
+        """Reset to x0."""
         self.x = np.zeros(self.A.shape[0]) if x0 is None else x0
         self.t = 0
 
     def step(self, u):
+        """Advance the system."""
         self._w = self.Bw @ np.clip(np.random.normal(scale=1, size=self.Bw.shape[1]), -1, 1)
         self.x = self.A @ self.x + self.B @ u + self._w
         self.t += 1
 
-class periodic_tracking_controller():
+class PeriodicTrackingController():
     """Static reference tracking controller.
             u_k = K * (xh_k - xr_k)
             xh_{k+1} = A xh_k + B u_k + L * (y - C xh_k)
@@ -55,7 +56,7 @@ class periodic_tracking_controller():
         Initial state estimate.
     perception : function, optional
         If included, will pass measurements through before using.
-    
+
     """
     def __init__(self, trajectory, A, B, C, K, L, su=0., perception=None,
                  x0=None):
@@ -76,6 +77,7 @@ class periodic_tracking_controller():
             self.ys = []
 
     def input(self, y):
+        """Design input and update internal state based on y."""
         self.u = self.K @ (self.x - self.ref[self.t % self.period])
         self.u += np.clip(np.random.normal(scale=self.su, size=self.u.shape), -1, 1)
         self.t += 1
@@ -87,9 +89,10 @@ class periodic_tracking_controller():
         return self.u
 
     def update_state_estimate(self, y):
+        """Update internal state."""
         self.x = self.A @ self.x + self.B @ self.u + self.L @ (y - self.C @ self.x)
 
-class periodic_OL_control():
+class PeriodicOLControl():
     """Open loop control signals."""
     def __init__(self, freq=[0.01], amp=[1], funtype=['sin'], su=0.5):
         fun = []
@@ -99,20 +102,21 @@ class periodic_OL_control():
             elif t == 'cos':
                 fun.append(np.cos)
             else:
-                raise Error("unrecognized function type {}".format(t))
+                assert False, "unrecognized function type {}".format(t)
 
         self.control_fun = (lambda t: [a * f(2*np.pi*fr*t)
-                            for fr,a,f in zip(freq, amp, fun)])
+                                       for fr, a, f in zip(freq, amp, fun)])
         self.t = 0
         self.su = su
 
     def input(self, y):
+        """Select input based on time."""
         u = np.array(self.control_fun(self.t))
-        noise = np.clip(np.random.normal(scale=self.su, size=u.shape),-1,1)
+        noise = np.clip(np.random.normal(scale=self.su, size=u.shape), -1, 1)
         self.t += 1
         return u + noise
 
-class interconnection():
+class Interconnection():
     """Interconnection puts together controller, dynamical system, and observer.
 
     Parameters
@@ -125,7 +129,7 @@ class interconnection():
         Closed-loop controller.
     get_observation_for_controller : function, optional
         Additional observation method to be used by controller.
-    
+
     """
 
     def __init__(self, plant, get_observation, controller,
@@ -144,6 +148,7 @@ class interconnection():
             self.zs_c = self.zs
 
     def step(self):
+        """Advance the system."""
         u = self.controller.input(self.zs_c[-1])
         self.plant.step(u)
         self.us.append(u)
@@ -153,16 +158,20 @@ class interconnection():
             self.zs_c.append(self.get_observation_c(self.plant.x))
 
     def plot_trajectory(self, axs):
+        """Plot trajectory."""
         xs = np.array(self.xs)
         us = np.array(self.us)
         for i in range(xs.shape[1]):
-            axs[0].plot(xs[:,i], alpha=0.7, label='x{}'.format(i+1))
-        axs[0].legend(); axs[0].set_title('States')
+            axs[0].plot(xs[:, i], alpha=0.7, label='x{}'.format(i+1))
+        axs[0].legend()
+        axs[0].set_title('States')
         for i in range(us.shape[1]):
-            axs[1].plot(us[:,i], alpha=0.7, label='u{}'.format(i+1))
-        axs[1].legend(); axs[1].set_title('Inputs')
+            axs[1].plot(us[:, i], alpha=0.7, label='u{}'.format(i+1))
+        axs[1].legend()
+        axs[1].set_title('Inputs')
 
     def plot_observations(self, ax):
+        """Plot observations."""
         zs = np.array(self.zs)
         zs = zs.reshape(len(self.zs), -1)
         im = ax.imshow(zs.T, aspect='auto')
