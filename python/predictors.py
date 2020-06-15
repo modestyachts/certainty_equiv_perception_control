@@ -16,7 +16,7 @@ class Predictor():
     online : boolean
         Flag to determine whether prediction should incorporate
         basic memory.
-    
+
     """
 
     def __init__(self, zs=[], ys=[], online=False):
@@ -60,11 +60,11 @@ class Predictor():
 
         preds, _ = self.compute_pred(zs)
         if self.online:
-            if np.linalg.norm(self.preds[-1]) < 1e-6:
+            if np.linalg.norm(preds[-1]) < 1e-6:
                 print('using prev pred!')
-                self.preds[-1] = self.self.prev_pred
+                preds[-1] = self.prev_pred
             else:
-                self.prev_pred = self.preds[-1]
+                prev_pred = preds[-1]
         return preds
 
 class KernelPredictor(Predictor):
@@ -80,7 +80,7 @@ class KernelPredictor(Predictor):
     transform : str
         The type of transformation to perform on observations before
         computing the distance.
-    
+
     """
     def __init__(self, zs=[], ys=[], distance='l2', gamma=1,
                  transform='identity', online=False):
@@ -113,7 +113,7 @@ class KernelPredictor(Predictor):
             if len(z.shape) < 3:
                 rgb_arr = 255*(np.array([z]*3).T)
             else:
-                rgb_arr = z[:,:,:]
+                rgb_arr = z[:, :, :]
             _, descriptors = sift.detectAndCompute(np.uint8(rgb_arr), None)
             vecs.append(descriptors[:10].flatten())
         return np.array(vecs)
@@ -126,8 +126,8 @@ class KernelPredictor(Predictor):
             if len(z.shape) < 3:
                 rgb_arr = 255*(np.array([z]*3).T)
             else:
-                rgb_arr = z[:,:,:]
-            edges = cv2.Canny(np.uint8(rgb_arr),100,200)
+                rgb_arr = z[:, :, :]
+            edges = cv2.Canny(np.uint8(rgb_arr), 100, 200)
             vecs.append(edges.flatten())
         return np.array(vecs)
 
@@ -139,7 +139,7 @@ class KernelPredictor(Predictor):
             if len(z.shape) < 3:
                 rgb_arr = 255*(np.array([z]*3).T)
             else:
-                rgb_arr = z[:,:,:]
+                rgb_arr = z[:, :, :]
             transform = skimage.filters.gaussian(rgb_arr, sigma=2)
             vecs.append(transform.flatten())
         return np.array(vecs)
@@ -152,9 +152,9 @@ class KernelPredictor(Predictor):
             if len(z.shape) < 3:
                 rgb_arr = 255*(np.array([z]*3).T)
             else:
-                rgb_arr = z[:,:,:]
-            _, hog_img = hog(rgb_arr,orientations=8, pixels_per_cell=(16, 16),
-                    cells_per_block=(1, 1), visualize=True, multichannel=True)
+                rgb_arr = z[:, :, :]
+            _, hog_img = hog(rgb_arr, orientations=8, pixels_per_cell=(16, 16),
+                             cells_per_block=(1, 1), visualize=True, multichannel=True)
             vecs.append(hog_img.flatten())
         return np.array(vecs)
 
@@ -204,7 +204,7 @@ class KernelPredictor(Predictor):
             full_mask = distances < self.gamma
             sTs = np.sum(full_mask, axis=0)
             for sT, mask in zip(sTs, full_mask.T):
-                if sT == 0: 
+                if sT == 0:
                     preds.append(np.zeros_like(self.ys_train[0]))
                 else:
                     preds.append(np.sum(np.array(self.ys_train)[mask], axis=0) / sT)
@@ -217,7 +217,7 @@ class KernelPredictor(Predictor):
                 full_mask = distances < gamma
                 sTs = np.sum(full_mask, axis=0)
                 for sT, mask in zip(sTs, full_mask.T):
-                    if sT == 0: 
+                    if sT == 0:
                         preds.append(np.zeros_like(self.ys_train[0]))
                     else:
                         preds.append(np.sum(np.array(self.ys_train)[mask], axis=0) / sT)
@@ -225,7 +225,7 @@ class KernelPredictor(Predictor):
                 all_sTs[gamma] = sTs
             preds = all_preds
             sTs = all_sTs
-        
+
         return preds, sTs
 
 
@@ -240,7 +240,7 @@ class KernelRidgePredictor(Predictor):
         Type of kernel function.
 
     """
-    
+
     def __init__(self, lam=1, ys=[], zs=[],
                  kernel='rbf'):
         super().__init__(zs=zs, ys=ys)
@@ -253,8 +253,8 @@ class KernelRidgePredictor(Predictor):
 
     def _default_kernel(self, zs, ys=None):
         znew = None if ys is None else [y.flatten() for y in ys]
-        kernel = sklearn.metrics.pairwise.rbf_kernel([z.flatten() for z in zs], znew, 
-                                                    gamma=self.gamma).T
+        kernel = sklearn.metrics.pairwise.rbf_kernel([z.flatten() for z in zs], znew,
+                                                     gamma=self.gamma).T
         return kernel
 
     def add_data(self, zs, ys):
@@ -267,10 +267,9 @@ class KernelRidgePredictor(Predictor):
         zs = np.array(self.zs_train)
         if self.K is None:
             self.K = self.kernel(zs)
-        T, _ = self.K.shape
         sv_sq, U = scipy.linalg.eigh(self.K)
-        sv_sq[(sv_sq<0)] = 0
-        self.coeff = ys.T @ U @ np.diag(1 / (sv_sq + self.lam) ) @ U.T
+        sv_sq[(sv_sq < 0)] = 0
+        self.coeff = ys.T @ U @ np.diag(1 / (sv_sq + self.lam)) @ U.T
         self.trained = True
 
     def compute_pred(self, zs, param_list=None):
@@ -320,9 +319,9 @@ class FeatureRidgePredictor(Predictor):
             if len(z.shape) < 3:
                 rgb_arr = 255*(np.array([z]*3).T)
             else:
-                rgb_arr = z[:,:,:]
-            _, hog_img = hog(rgb_arr,orientations=8, pixels_per_cell=(16, 16),
-                    cells_per_block=(1, 1), visualize=True, multichannel=True)
+                rgb_arr = z[:, :, :]
+            _, hog_img = hog(rgb_arr, orientations=8, pixels_per_cell=(16, 16),
+                             cells_per_block=(1, 1), visualize=True, multichannel=True)
             vecs.append(hog_img.flatten())
         return np.array(vecs)
 
@@ -336,8 +335,8 @@ class FeatureRidgePredictor(Predictor):
                 rgb_arr = 255*(np.array([z]*3).T)
             else:
                 # already an image
-                rgb_arr = z[:,:,:]
-            edges = cv2.Canny(np.uint8(rgb_arr),100,200)
+                rgb_arr = z[:, :, :]
+            edges = cv2.Canny(np.uint8(rgb_arr), 100, 200)
             vecs.append(edges.flatten())
         return np.array(vecs)
 
@@ -354,7 +353,7 @@ class FeatureRidgePredictor(Predictor):
         U, s, VT = scipy.linalg.svd(self.phis, full_matrices=False)
         sv_sq = s**2
         D_sigma = s / (sv_sq + self.lam)
-        self.ahat = ys.T @ U @ np.diag(D_sigma) @ VT        
+        self.ahat = ys.T @ U @ np.diag(D_sigma) @ VT 
         self.trained = True
 
     def compute_pred(self, zs, param_list=None):
